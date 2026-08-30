@@ -37,7 +37,10 @@ pub fn transport_error(action: &str, url: &str, err: &reqwest::Error) -> String 
         format!("Request to {} failed.", url)
     };
 
-    format!("Could not {}.\n\n{}\n\nDetails: {}", action, hint, cause)
+    let message = format!("Could not {}.\n\n{}\n\nDetails: {}", action, hint, cause);
+    // Popups are dismissed and lost; the log is what a bug report can be built from.
+    log::error!("{}", message);
+    message
 }
 
 /// Describes a response whose status was not a success.
@@ -75,6 +78,7 @@ pub fn status_error(action: &str, url: &str, status: StatusCode, body: &str) -> 
     if let Some(snippet) = body_snippet(body) {
         message.push_str(&format!("\nResponse: {}", snippet));
     }
+    log::error!("{}", message);
     message
 }
 
