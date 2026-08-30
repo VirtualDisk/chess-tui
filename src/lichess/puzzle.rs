@@ -49,12 +49,16 @@ impl LichessClient {
     }
 
     /// Submit puzzle result to Lichess. Returns the rating diff from the response.
+    ///
+    /// Not every instance serves the puzzle-result endpoint; a 404 there means the
+    /// result simply cannot be recorded, which is reported as
+    /// [`PuzzleSubmitOutcome::Unsupported`] rather than as a failure.
     pub fn submit_puzzle_result(
         &self,
         puzzle_id: &str,
         win: bool,
         time: Option<u32>,
-    ) -> Result<i32, Box<dyn Error>> {
+    ) -> Result<PuzzleSubmitOutcome, Box<dyn Error>> {
         use serde_json::json;
 
         // The API expects a JSON object with a "solutions" field containing an array
@@ -95,12 +99,15 @@ impl LichessClient {
         log::info!("Response status: {}", status);
         log::info!("Response body: {}", response_text);
 
-        if !status.is_success() {
-            log::error!(
-                "Failed to submit puzzle result: {} - {}",
-                status,
-                response_text
+        if status == reqwest::StatusCode::NOT_FOUND {
+            log::warn!(
+                "{} has no puzzle-result endpoint; the result was not recorded and no rating change will be shown.",
+                url
             );
+            return Ok(PuzzleSubmitOutcome::Unsupported);
+        }
+
+        if !status.is_success() {
             return Err(
                 status_error("submit the puzzle result", &url, status, &response_text).into(),
             );
@@ -109,12 +116,32 @@ impl LichessClient {
         log::info!("✓ Puzzle result submitted successfully to Lichess!");
 
         let body: serde_json::Value = serde_json::from_str(&response_text)?;
-        let rating_diff = body["rounds"]
+        // An instance that accepts the submission but returns no rounds has not
+        // recorded anything, so there is no rating change to wait for or show.
+        let Some(rating_diff) = body["rounds"]
             .as_array()
             .and_then(|r| r.first())
             .and_then(|r| r["ratingDiff"].as_i64())
-            .unwrap_or(0) as i32;
+        else {
+            log::warn!(
+                "{} accepted the puzzle result but returned no rounds, so no rating was recorded.",
+                url
+            );
+            return Ok(PuzzleSubmitOutcome::Unsupported);
+        };
 
-        Ok(rating_diff)
+        Ok(PuzzleSubmitOutcome::Rated(rating_diff as i32))
     }
+}
+
+/// What came of submitting a solved puzzle.
+#[derive(Debug, Clone, Copy)]
+pub enum PuzzleSubmitOutcome {
+    /// The instance recorded the result and reported this rating change.
+    Rated(i32),
+    /// The instance did not record the result: it either has no puzzle-result
+    /// endpoint, or accepted the submission and reported no rounds back.
+    Unsupported,
+    /// The submission failed outright. The cause is already in the log.
+    Failed,
 }

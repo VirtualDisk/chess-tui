@@ -128,18 +128,25 @@ pub fn render(app: &mut App, frame: &mut Frame<'_>) {
             };
 
             // Check if we're still waiting for Elo change calculation
-            let (elo_change, is_calculating) = if let Some(puzzle_game) =
+            let (elo_change, is_calculating, submit_unsupported) = if let Some(puzzle_game) =
                 &app.lichess_state.puzzle_game
             {
                 (
                     puzzle_game.elo_change,
                     puzzle_game.elo_change.is_none() && puzzle_game.elo_change_receiver.is_some(),
+                    puzzle_game.submit_unsupported,
                 )
             } else {
-                (None, false)
+                (None, false, false)
             };
 
-            render_puzzle_end_popup(frame, &message, elo_change, is_calculating);
+            render_puzzle_end_popup(
+                frame,
+                &message,
+                elo_change,
+                is_calculating,
+                submit_unsupported,
+            );
         }
         Some(Popups::Loading) => {
             let message = if let Some(ref msg) = app.ui_state.popup_message {
