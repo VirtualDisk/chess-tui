@@ -8,7 +8,7 @@ use crate::constants::{
 use crate::game_logic::game::GameState;
 use crate::game_logic::opponent::Opponent;
 use crate::game_logic::puzzle::PuzzleGame;
-use crate::lichess::models::LichessClient;
+use crate::lichess::models::{LichessClient, unsupported_variant_name};
 use crate::state::lichess_state::{ApiUrlSuffixChoice, LichessUpdate};
 use shakmaty::Color;
 use std::sync::mpsc::channel;
@@ -411,9 +411,19 @@ impl App {
                             return true;
                         }
                         Err(e) => {
-                            log::error!("Failed to parse FEN position: {}", e);
+                            // Reached when a position is legal somewhere but not in
+                            // standard chess - a variant slipping past the variant check.
+                            log::error!(
+                                "Game {} has a position chess-tui cannot play: FEN '{}': {}",
+                                game_id,
+                                fen_str,
+                                e
+                            );
                             self.ui_state.show_message_popup(
-                                format!("Failed to parse FEN: {}", e),
+                                format!(
+                                    "Game {} is not a standard chess position, so chess-tui cannot open it.\n\nFEN: {}\n\nDetails: {}",
+                                    game_id, fen_str, e
+                                ),
                                 Popups::Error,
                             );
                             return false;
@@ -421,9 +431,19 @@ impl App {
                     }
                 }
                 Err(e) => {
-                    log::error!("Failed to parse FEN string: {}", e);
-                    self.ui_state
-                        .show_message_popup(format!("Failed to parse FEN: {}", e), Popups::Error);
+                    log::error!(
+                        "Game {} sent an unreadable FEN '{}': {}",
+                        game_id,
+                        fen_str,
+                        e
+                    );
+                    self.ui_state.show_message_popup(
+                        format!(
+                            "Game {} sent a FEN chess-tui could not read.\n\nFEN: {}\n\nDetails: {}",
+                            game_id, fen_str, e
+                        ),
+                        Popups::Error,
+                    );
                     return false;
                 }
             }
@@ -685,6 +705,26 @@ impl App {
             .ongoing_games
             .get(self.ui_state.menu_cursor as usize)
         {
+            // chess-tui models every position with shakmaty::Chess, so a variant game
+            // cannot even be parsed - a Horde FEN has no white king. Say so here rather
+            // than failing deep inside board setup.
+            if let Some(variant) = unsupported_variant_name(game.variant.as_ref()) {
+                let game_id = game.game_id.clone();
+                log::warn!(
+                    "Refusing to join game {}: variant {} is not standard chess",
+                    game_id,
+                    variant
+                );
+                self.ui_state.show_message_popup(
+                    format!(
+                        "This game is {}.\n\nchess-tui plays standard chess only, so it cannot open this game.",
+                        variant
+                    ),
+                    Popups::Error,
+                );
+                return;
+            }
+
             let game_id = game.game_id.clone();
             let color_str = game.color.clone();
             let fen = game.fen.clone();

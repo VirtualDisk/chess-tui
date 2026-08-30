@@ -2,7 +2,9 @@
 
 use crate::constants::lichess_api_url;
 use crate::lichess::errors::{status_error, transport_error};
-use crate::lichess::models::{EventStreamEvent, GameEvent, LichessClient};
+use crate::lichess::models::{
+    EventStreamEvent, GameEvent, LichessClient, unsupported_variant_name,
+};
 use shakmaty::Color;
 use std::error::Error;
 use std::sync::mpsc::Sender;
@@ -107,6 +109,17 @@ impl LichessClient {
                         Ok(EventStreamEvent::GameStart { game }) => {
                             // Check if this is a new game
                             if !initial_game_ids.contains(&game.game_id) {
+                                // Only standard chess can be set up; see GameVariant.
+                                if let Some(variant) =
+                                    unsupported_variant_name(game.variant.as_ref())
+                                {
+                                    let _ = game_found_tx.send(Err(format!(
+                                        "The game that started is {}.\n\nchess-tui plays standard chess only, so it cannot open this game.",
+                                        variant
+                                    )));
+                                    return;
+                                }
+
                                 let color = parse_game_color(&game.color);
                                 log::info!(
                                     "Event stream found new game: {} as {:?}",
