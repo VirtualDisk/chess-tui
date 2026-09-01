@@ -205,6 +205,14 @@ pub const LICHESS_TOKEN_SCOPES: [&str; 4] = [
 /// Description pre-filled on the Lichess token creation form.
 pub const LICHESS_TOKEN_DESCRIPTION: &str = "chess-tui";
 
+/// Puzzle angle used when fetching and recording puzzles.
+///
+/// The Lichess puzzle routes are parameterized by an angle (a theme or opening
+/// id); `mix` is the one served when no angle is asked for. The fetch side and
+/// the submit side must always use the same angle, so if `/puzzle/next` is ever
+/// changed to request a specific one, change this with it.
+pub const PUZZLE_ANGLE: &str = "mix";
+
 /// Environment variable used to override the Lichess API base URL.
 pub const LICHESS_API_URL_ENV: &str = "CHESS_TUI_LICHESS_API_URL";
 
@@ -322,6 +330,11 @@ pub fn lichess_token_create_url(api_url: &str) -> String {
         "{}/account/oauth/token/create?{}&description={}",
         base, scopes, LICHESS_TOKEN_DESCRIPTION
     )
+}
+
+/// Builds the URL that records puzzle results on the configured instance.
+pub fn puzzle_batch_url() -> String {
+    format!("{}/puzzle/batch/{}", lichess_api_url(), PUZZLE_ANGLE)
 }
 
 /// Base URL for the chess-tui documentation.

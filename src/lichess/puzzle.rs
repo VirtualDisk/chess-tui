@@ -1,7 +1,7 @@
 //! Puzzle fetch endpoint.
 
 use crate::{
-    constants::lichess_api_url,
+    constants::{lichess_api_url, puzzle_batch_url},
     lichess::errors::{status_error, transport_error},
     lichess::models::{LichessClient, Puzzle},
 };
@@ -71,7 +71,7 @@ impl LichessClient {
             }]
         });
 
-        let url = format!("{}/puzzle/batch/angle", lichess_api_url());
+        let url = puzzle_batch_url();
         log::info!("=== SUBMITTING PUZZLE RESULT ===");
         log::info!("URL: {}", url);
         log::info!("Puzzle ID: {}, Win: {}, Time: {:?}ms", puzzle_id, win, time);

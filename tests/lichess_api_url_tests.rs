@@ -3,7 +3,9 @@ mod lichess_api_url_tests {
     use chess_tui::{
         app::{App, AppResult},
         config::{Args, Config},
-        constants::{DEFAULT_LICHESS_API_URL, Popups, lichess_api_url, set_lichess_api_url},
+        constants::{
+            DEFAULT_LICHESS_API_URL, Popups, lichess_api_url, puzzle_batch_url, set_lichess_api_url,
+        },
         handlers::handler::handle_key_events,
         state::lichess_state::ApiUrlSuffixChoice,
         ui::popup::lichess::{
@@ -190,6 +192,20 @@ mod lichess_api_url_tests {
             "The link should preselect the scopes chess-tui needs.\nRendered:\n{rendered}"
         );
         Ok(())
+    }
+
+    #[test]
+    fn the_puzzle_result_url_names_a_real_angle() {
+        // `/puzzle/batch/{angle}` takes an angle id; the literal word "angle" is a
+        // placeholder that makes a self-hosted instance answer 404, which reads as
+        // "this instance has no puzzle endpoint".
+        // The base URL is a process-wide global that other tests in this binary
+        // rewrite, so this reads it rather than setting it.
+        assert_eq!(
+            puzzle_batch_url(),
+            format!("{}/puzzle/batch/mix", lichess_api_url())
+        );
+        assert!(puzzle_batch_url().ends_with("/puzzle/batch/mix"));
     }
 
     fn args_with_api_url(api_url: Option<&str>) -> Args {
